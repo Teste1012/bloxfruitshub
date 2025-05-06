@@ -1,102 +1,85 @@
--- Blox Fruits - PvP/PvE Hub Script
-local plr = game.Players.LocalPlayer
 
--- GUI Setup
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-local Frame = Instance.new("Frame", ScreenGui)
-Frame.Size = UDim2.new(0, 250, 0, 310)
-Frame.Position = UDim2.new(0, 10, 0, 10)
-Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+-- ZYXNS HUB - | For Private Servers Only
+-- Author: Teste1012
 
-local function createButton(text, posY)
-	local btn = Instance.new("TextButton", Frame)
-	btn.Size = UDim2.new(1, 0, 0, 40)
-	btn.Position = UDim2.new(0, 0, 0, posY)
-	btn.Text = text
-	btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	return btn
+-- CONFIGURAÇÕES INICIAIS
+local team = getgenv().Team or "Pirates"
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Seleção de time automática
+if LocalPlayer.Team == nil or LocalPlayer.Team.Name ~= team then
+    for _, v in pairs(game:GetService("ReplicatedStorage").Remotes["CommF_"]:InvokeServer("SetTeam", team)) do end
 end
 
-local notify = Instance.new("TextLabel", ScreenGui)
-notify.Size = UDim2.new(0, 250, 0, 30)
-notify.Position = UDim2.new(0, 10, 0, 330)
-notify.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-notify.TextColor3 = Color3.fromRGB(0, 255, 0)
-notify.Text = "Status: Aguardando..."
+-- Função para usar Haki automaticamente
+local function EnableHaki()
+    pcall(function()
+        if not LocalPlayer.Character:FindFirstChild("HasBuso") then
+            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Buso")
+        end
+    end)
+end
 
--- Speed
-createButton("Speed 200", 0).MouseButton1Click:Connect(function()
-	plr.Character.Humanoid.WalkSpeed = 200
+-- UI Library carregamento (W-Azure base)
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+local Window = Library.CreateLib("ZYXNS HUB - Blox Fruits", "DarkTheme")
+
+-- Abas da interface
+local FarmTab = Window:NewTab("Auto Farm")
+local TeleportTab = Window:NewTab("Teleports")
+local FruitTab = Window:NewTab("Fruits")
+local SettingsTab = Window:NewTab("Settings")
+
+-- Seções
+local FarmSection = FarmTab:NewSection("Farm")
+local TeleportSection = TeleportTab:NewSection("Ilhas")
+local FruitSection = FruitTab:NewSection("Coleta")
+local SettingsSection = SettingsTab:NewSection("Configurações")
+
+-- Auto Farm Toggle
+FarmSection:NewToggle("Auto Farm", "Farm automático de inimigos", function(state)
+    getgenv().AutoFarm = state
+    while getgenv().AutoFarm do
+        EnableHaki()
+        -- Procura e ataca inimigos
+        local enemy = game:GetService("Workspace").Enemies:FindFirstChildOfClass("Model")
+        if enemy and enemy:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = enemy.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5)
+            pcall(function() LocalPlayer.Character:FindFirstChildOfClass("Tool"):Activate() end)
+        end
+        task.wait(0.1)
+    end
 end)
 
--- JumpPower
-createButton("JumpPower 150", 50).MouseButton1Click:Connect(function()
-	plr.Character.Humanoid.JumpPower = 150
+-- Auto Haki Toggle
+FarmSection:NewToggle("Auto Haki", "Ativa Haki automaticamente", function(state)
+    getgenv().AutoHaki = state
+    while getgenv().AutoHaki do
+        EnableHaki()
+        task.wait(2)
+    end
 end)
 
--- TP Jungle
-createButton("TP Jungle", 100).MouseButton1Click:Connect(function()
-	local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-	if hrp then hrp.CFrame = CFrame.new(2899, 7, -2269) end
+-- Teleporte exemplo
+TeleportSection:NewButton("Ir para Starter Island", "Teleporta para a ilha inicial", function()
+    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(2067, 38, 2839)
 end)
 
--- TP Fruta
-createButton("TP Fruta Spawnada", 150).MouseButton1Click:Connect(function()
-	local fruitFolder = workspace:FindFirstChild("Fruit") or workspace
-	for _, fruit in pairs(fruitFolder:GetChildren()) do
-		if fruit:IsA("Tool") or fruit:IsA("Model") then
-			local pos = fruit:FindFirstChild("Handle") or fruit:FindFirstChildWhichIsA("BasePart")
-			if pos then
-				plr.Character:WaitForChild("HumanoidRootPart").CFrame = pos.CFrame + Vector3.new(0, 5, 0)
-				notify.Text = "Status: Teleportado para fruta!"
-				wait(2)
-				notify.Text = "Status: Aguardando..."
-				break
-			end
-		end
-	end
+-- Auto Collect Fruit
+FruitSection:NewToggle("Auto Coletar Fruta", "Teleporta até as frutas spawnadas", function(state)
+    getgenv().AutoFruit = state
+    while getgenv().AutoFruit do
+        for _, v in pairs(game:GetService("Workspace"):GetChildren()) do
+            if v:IsA("Tool") and string.find(v.Name:lower(), "fruit") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = v.Handle.CFrame
+            end
+        end
+        task.wait(5)
+    end
 end)
 
--- Auto Farm/Quest/Aura Toggle
-local isAuto = false
-createButton("Toggle Auto Farm/Quest", 200).MouseButton1Click:Connect(function()
-	isAuto = not isAuto
-	notify.Text = isAuto and "Status: Auto Farm Ativado" or "Status: Auto Farm Desativado"
-end)
-
--- Auto Farm Loop
-task.spawn(function()
-	while true do
-		if isAuto then
-			local char = plr.Character
-			local hrp = char and char:FindFirstChild("HumanoidRootPart")
-
-			-- Auto Aura
-			pcall(function()
-				game:GetService("ReplicatedStorage").Remotes.Comm:InvokeServer("Buso")
-			end)
-
-			-- Auto Quest (NPC de exemplo: BanditQuest1, lvl 1)
-			pcall(function()
-				game:GetService("ReplicatedStorage").Remotes.Comm:InvokeServer("StartQuest", "BanditQuest1", 1)
-			end)
-
-			-- Procurar inimigos
-			local enemies = workspace.Enemies:GetChildren()
-			for _, enemy in pairs(enemies) do
-				if enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
-					hrp.CFrame = enemy.HumanoidRootPart.CFrame + Vector3.new(0, 0, 3)
-
-					-- Ataque rápido
-					for i = 1, 10 do
-						game:GetService("VirtualInputManager"):SendMouseButton1Down()
-						game:GetService("VirtualInputManager"):SendMouseButton1Up()
-						wait(0.05)
-					end
-				end
-			end
-		end
-		wait(1)
-	end
+-- Settings
+SettingsSection:NewKeybind("Fechar GUI", "Esconde ou mostra a interface", Enum.KeyCode.RightControl, function()
+    Library:ToggleUI()
 end)
